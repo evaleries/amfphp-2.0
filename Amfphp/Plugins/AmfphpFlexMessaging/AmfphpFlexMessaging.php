@@ -141,11 +141,11 @@ class AmfphpFlexMessaging {
      */
     public function generateErrorResponse(Exception $exception) {
         $error = new AmfphpFlexMessaging_ErrorMessage($this->lastFlexMessageId);
-        $error->faultCode = $exception->getCode();
-        $error->faultString = $exception->getMessage();
         if ($this->returnErrorDetails) {
             $error->faultDetail = $exception->getTraceAsString();
             $error->rootCause = $exception;
+            $error->faultCode = $exception->getCode();
+            $error->faultString = $exception->getMessage();
         }
         $errorMessage = new Amfphp_Core_Amf_Message($this->lastFlexMessageResponseUri . Amfphp_Core_Amf_Constants::CLIENT_FAILURE_METHOD, null, $error);
         $errorPacket = new Amfphp_Core_Amf_Packet();
