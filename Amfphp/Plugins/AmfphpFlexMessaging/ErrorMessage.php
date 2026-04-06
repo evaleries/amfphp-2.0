@@ -17,6 +17,7 @@
  * @author Ariel Sommeria-Klein
  */
 class AmfphpFlexMessaging_ErrorMessage {
+    public $_explicitType;
 
     /**
      * correlation id. guid

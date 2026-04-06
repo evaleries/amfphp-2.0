@@ -76,7 +76,7 @@ class AmfphpVoConverter implements Amfphp_Core_Common_IVoConverter {
      * constructor.
      * @param array $config optional key/value pairs in an associative array. Used to override default configuration values.
      */
-    public function __construct(array $config = null) {
+    public function __construct(?array $config = null) {
         //default
         $this->voFolders = array(AMFPHP_ROOTPATH . '/Services/Vo/');
         if ($config) {
@@ -249,6 +249,9 @@ class AmfphpVoConverter implements Amfphp_Core_Common_IVoConverter {
         }
         $explicitTypeField = Amfphp_Core_Amf_Constants::FIELD_EXPLICIT_TYPE;
         $className = get_class($obj);
+        if (substr($className, 0, 16) == 'Amfphp_Core_Amf_') {
+            return $obj;
+        }
         if ($className != 'stdClass' && !isset($obj->$explicitTypeField)) {
             $obj->$explicitTypeField = $className;
         }

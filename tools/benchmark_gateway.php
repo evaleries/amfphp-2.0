@@ -34,8 +34,10 @@ function setStaticProperty($className, $propertyName, $value) {
     }
 
     $property = new ReflectionProperty($className, $propertyName);
-    $property->setAccessible(true);
-    $property->setValue($value);
+    if (PHP_VERSION_ID < 80100) {
+        $property->setAccessible(true);
+    }
+    $property->setValue(null, $value);
 }
 
 function resetGatewayState() {

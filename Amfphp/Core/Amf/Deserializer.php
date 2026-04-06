@@ -301,6 +301,9 @@ class Amfphp_Core_Amf_Deserializer implements Amfphp_Core_Common_IDeserializer {
      */
     protected function readReference() {
         $reference = $this->readInt();
+        if (!isset($this->amf0storedObjects[$reference])) {
+            return null;
+        }
         return $this->amf0storedObjects[$reference];
     }
 

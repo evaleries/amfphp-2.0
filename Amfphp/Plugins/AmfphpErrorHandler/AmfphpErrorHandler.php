@@ -22,7 +22,7 @@ class AmfphpErrorHandler {
      * constructor. Add filters on the HookManager.
      * @param array $config optional key/value pairs in an associative array. Used to override default configuration values.
      */
-    public function  __construct(array $config = null) {
+    public function  __construct(?array $config = null) {
         set_error_handler('custom_warning_handler');
     }
 }
@@ -33,12 +33,12 @@ class AmfphpErrorHandler {
  * @param string $errstr
  * @param string $errfile
  * @param int $errline
- * @param mixed $errcontext
  * @throws Exception
  */
-function custom_warning_handler($errno, $errstr, $errfile, $errline, $errcontext) {
+function custom_warning_handler($errno, $errstr, $errfile, $errline, $errcontext = null) {
     if ($errno & error_reporting()) {
-        throw new Amfphp_Core_Exception("$errstr . \n<br>file:  $errfile \n<br>line: $errline \n<br>context: " . print_r($errcontext, true), $errno);
+        $contextString = $errcontext === null ? '' : "\n<br>context: " . print_r($errcontext, true);
+        throw new Amfphp_Core_Exception("$errstr . \n<br>file:  $errfile \n<br>line: $errline$contextString", $errno);
     }
 }
 
