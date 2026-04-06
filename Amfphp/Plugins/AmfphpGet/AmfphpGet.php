@@ -52,7 +52,7 @@ class AmfphpGet implements Amfphp_Core_Common_IDeserializer, Amfphp_Core_Common_
      * constructor. Add filters on the HookManager.
      * @param array $config optional key/value pairs in an associative array. Used to override default configuration values.
      */
-    public function  __construct(array $config = null) {
+    public function  __construct(?array $config = null) {
         $filterManager = Amfphp_Core_FilterManager::getInstance();
         $filterManager->addFilter(Amfphp_Core_Gateway::FILTER_DESERIALIZER, $this, 'filterHandler');
         $filterManager->addFilter(Amfphp_Core_Gateway::FILTER_DESERIALIZED_REQUEST_HANDLER, $this, 'filterHandler');

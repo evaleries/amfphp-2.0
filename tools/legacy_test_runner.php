@@ -102,7 +102,9 @@ function invokeLifecycleMethod($object, $methodName) {
     }
 
     $method = new ReflectionMethod($object, $methodName);
-    $method->setAccessible(true);
+    if (PHP_VERSION_ID < 80100) {
+        $method->setAccessible(true);
+    }
     $method->invoke($object);
 }
 
@@ -212,4 +214,3 @@ fwrite(
         $elapsedMs
     )
 );
-

@@ -81,7 +81,7 @@ class AmfphpCharsetConverter {
      * constructor.
      * @param array $config optional key/value pairs in an associative array. Used to override default configuration values.
      */
-    public function  __construct(array $config = null) {
+    public function  __construct(?array $config = null) {
         //defaults
         $this->clientCharset = 'utf-8';
         $this->phpCharset = 'utf-8';

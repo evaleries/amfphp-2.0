@@ -66,7 +66,7 @@ class AmfphpFlexMessaging {
      * constructor.
      * @param array $config optional key/value pairs in an associative array. Used to override default configuration values.
      */
-    public function __construct(array $config = null) {
+    public function __construct(?array $config = null) {
         Amfphp_Core_FilterManager::getInstance()->addFilter(Amfphp_Core_Amf_Handler::FILTER_AMF_REQUEST_MESSAGE_HANDLER, $this, 'filterAmfRequestMessageHandler');
         Amfphp_Core_FilterManager::getInstance()->addFilter(Amfphp_Core_Amf_Handler::FILTER_AMF_EXCEPTION_HANDLER, $this, 'filterAmfExceptionHandler');
         $this->clientUsesFlexMessaging = false;

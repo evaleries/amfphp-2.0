@@ -77,7 +77,7 @@ class AmfphpAuthentication {
      * constructor.
      * @param array $config optional key/value pairs in an associative array. Used to override default configuration values.
      */
-    public function __construct(array $config = null) {
+    public function __construct(?array $config = null) {
         $filterManager = Amfphp_Core_FilterManager::getInstance();
         $filterManager->addFilter(Amfphp_Core_Common_ServiceRouter::FILTER_SERVICE_OBJECT, $this, 'filterServiceObject');
         $filterManager->addFilter(Amfphp_Core_Amf_Handler::FILTER_AMF_REQUEST_HEADER_HANDLER, $this, 'filterAmfRequestHeaderHandler');
