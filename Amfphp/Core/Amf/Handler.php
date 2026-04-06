@@ -115,11 +115,19 @@ class Amfphp_Core_Amf_Handler implements Amfphp_Core_Common_IDeserializer, Amfph
      * @return Amfphp_Core_Common_ServiceCallParameters
      */
     protected function getServiceCallParameters(Amfphp_Core_Amf_Message $Amfphp_Core_Amf_Message) {
-        $targetUri = str_replace('.', '/', $Amfphp_Core_Amf_Message->targetUri);
-        $split = explode('/', $targetUri);
+        $targetUri = $Amfphp_Core_Amf_Message->targetUri;
+        if (strpos($targetUri, '.') !== false) {
+            $targetUri = str_replace('.', '/', $targetUri);
+        }
+        $lastSeparatorPos = strrpos($targetUri, '/');
         $ret = new Amfphp_Core_Common_ServiceCallParameters();
-        $ret->methodName = array_pop($split);
-        $ret->serviceName = join('/', $split);
+        if ($lastSeparatorPos === false) {
+            $ret->serviceName = '';
+            $ret->methodName = $targetUri;
+        } else {
+            $ret->serviceName = substr($targetUri, 0, $lastSeparatorPos);
+            $ret->methodName = substr($targetUri, $lastSeparatorPos + 1);
+        }
         $ret->methodParameters = $Amfphp_Core_Amf_Message->data;
         return $ret;
     }
@@ -143,12 +151,11 @@ class Amfphp_Core_Amf_Handler implements Amfphp_Core_Common_IDeserializer, Amfph
         //plugins didn't do any special handling. Assumes this is a simple Amfphp_Core_Amf_ RPC call
         $serviceCallParameters = $this->getServiceCallParameters($requestMessage);
         $ret = $serviceRouter->executeServiceCall($serviceCallParameters->serviceName, $serviceCallParameters->methodName, $serviceCallParameters->methodParameters);
-        $responseMessage = new Amfphp_Core_Amf_Message();
-        $responseMessage->data = $ret;
-        $responseMessage->targetUri = $requestMessage->responseUri . Amfphp_Core_Amf_Constants::CLIENT_SUCCESS_METHOD;
-        //not specified
-        $responseMessage->responseUri = 'null';
-        return $responseMessage;
+        return new Amfphp_Core_Amf_Message(
+            $requestMessage->responseUri . Amfphp_Core_Amf_Constants::CLIENT_SUCCESS_METHOD,
+            'null',
+            $ret
+        );
     }
 
     /**

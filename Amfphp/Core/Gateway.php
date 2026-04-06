@@ -140,6 +140,12 @@ class Amfphp_Core_Gateway {
     protected $rawOutputData;
 
     /**
+     * normalized content type without parameters, lowercased
+     * @var String
+     */
+    protected $normalizedContentType;
+
+    /**
      *
      */
     /**
@@ -155,6 +161,7 @@ class Amfphp_Core_Gateway {
         $this->postData = $postData;
         $this->rawInputData = $rawInputData;
         $this->contentType = $contentType;
+        $this->normalizedContentType = $this->normalizeContentType($contentType);
         if($config){
             $this->config = $config;
         }else{
@@ -177,6 +184,54 @@ class Amfphp_Core_Gateway {
         }
 
     }
+
+    /**
+     * normalize content type for quick transport-plugin checks
+     * @param string $contentType
+     * @return string|null
+     */
+    protected function normalizeContentType($contentType){
+        if(!$contentType){
+            return null;
+        }
+        $split = explode(';', strtolower(trim($contentType)), 2);
+        return trim($split[0]);
+    }
+
+    /**
+     * disable transport plugins that cannot match the current request content type.
+     * this avoids paying their constructor/filter registration cost on every request.
+     * @param array $disabledPlugins
+     * @return array
+     */
+    protected function getDisabledPluginsForCurrentRequest(array $disabledPlugins){
+        switch($this->normalizedContentType){
+            case Amfphp_Core_Amf_Constants::CONTENT_TYPE:
+                $disabledPlugins[] = 'AmfphpDummy';
+                $disabledPlugins[] = 'AmfphpJson';
+                $disabledPlugins[] = 'AmfphpGet';
+                break;
+            case 'application/json':
+                $disabledPlugins[] = 'AmfphpDummy';
+                $disabledPlugins[] = 'AmfphpGet';
+                break;
+            case 'text/amfphpget':
+                $disabledPlugins[] = 'AmfphpDummy';
+                $disabledPlugins[] = 'AmfphpJson';
+                break;
+            case 'application/x-www-form-urlencoded':
+            case null:
+                $disabledPlugins[] = 'AmfphpJson';
+                $disabledPlugins[] = 'AmfphpGet';
+                break;
+            default:
+                $disabledPlugins[] = 'AmfphpDummy';
+                $disabledPlugins[] = 'AmfphpJson';
+                $disabledPlugins[] = 'AmfphpGet';
+                break;
+        }
+        return array_values(array_unique($disabledPlugins));
+    }
     
     /**
      * The service method runs the gateway application.  It deserializes the raw data passed into the constructor as an Amfphp_Core_Amf_Packet, handles the headers,
@@ -188,9 +243,10 @@ class Amfphp_Core_Gateway {
     public function service(){
         $filterManager = Amfphp_Core_FilterManager::getInstance();
         $deserializedResponse = null;
+        $disabledPlugins = $this->getDisabledPluginsForCurrentRequest($this->config->disabledPlugins);
         try{
             $defaultHandler = new Amfphp_Core_Amf_Handler($this->config->sharedConfig);
-            Amfphp_Core_PluginManager::getInstance()->loadPlugins($this->config->pluginsFolders, $this->config->pluginsConfig, $this->config->sharedConfig, $this->config->disabledPlugins);
+            Amfphp_Core_PluginManager::getInstance()->loadPlugins($this->config->pluginsFolders, $this->config->pluginsConfig, $this->config->sharedConfig, $disabledPlugins);
             
             //filter service folder paths
             $this->config->serviceFolders = $filterManager->callFilters(self::FILTER_SERVICE_FOLDER_PATHS, $this->config->serviceFolders);

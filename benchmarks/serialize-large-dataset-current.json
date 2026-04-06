@@ -1,0 +1,15 @@
+{
+    "iterations": 400,
+    "mean_ms": 1.618064,
+    "median_ms": 1.610959,
+    "p95_ms": 1.688588,
+    "min_ms": 1.523709,
+    "max_ms": 2.418125,
+    "stddev_ms": 0.073949,
+    "operations_per_second": 618.022,
+    "label": "serialize_large_dataset",
+    "items": 1000,
+    "response_bytes": 77034,
+    "php_version": "7.4.33",
+    "timestamp_utc": "2026-04-06T19:27:52+00:00"
+}

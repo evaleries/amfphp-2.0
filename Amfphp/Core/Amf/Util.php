@@ -22,8 +22,12 @@ class Amfphp_Core_Amf_Util {
      * @return <Boolean>
      */
     static public function isSystemBigEndian() {
-        $tmp = pack('d', 1); // determine the multi-byte ordering of this machine temporarily pack 1
-        return ($tmp == "\0\0\0\0\0\0\360\77");
+        static $isBigEndian = null;
+        if ($isBigEndian === null) {
+            $tmp = pack('d', 1); // determine the multi-byte ordering of this machine temporarily pack 1
+            $isBigEndian = ($tmp == "\0\0\0\0\0\0\360\77");
+        }
+        return $isBigEndian;
     }
 
     /**

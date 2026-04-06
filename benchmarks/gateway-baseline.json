@@ -1,0 +1,14 @@
+{
+    "iterations": 5000,
+    "mean_ms": 0.114882,
+    "median_ms": 0.057541,
+    "p95_ms": 0.187633,
+    "min_ms": 0.055166,
+    "max_ms": 17.212583,
+    "stddev_ms": 0.472094,
+    "requests_per_second": 8704.555,
+    "label": "gateway_test_service",
+    "response_bytes": 42,
+    "php_version": "7.4.33",
+    "timestamp_utc": "2026-04-06T19:10:13+00:00"
+}

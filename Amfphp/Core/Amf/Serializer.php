@@ -144,7 +144,7 @@ class Amfphp_Core_Amf_Serializer implements Amfphp_Core_Common_ISerializer {
      * @param int $b An int that can be converted to a byte
      */
     protected function writeByte($b) {
-        $this->outBuffer .= pack('c', $b); // use pack with the c flag
+        $this->outBuffer .= chr($b & 0xFF);
     }
 
     /**
@@ -312,7 +312,6 @@ class Amfphp_Core_Amf_Serializer implements Amfphp_Core_Common_ISerializer {
 
         $numeric = array(); // holder to store the numeric keys
         $string = array(); // holder to store the string keys
-        $len = count($d); // get the total number of entries for the array
         $largestKey = -1;
         foreach ($d as $key => $data) { // loop over each element
             if (is_int($key) && ($key >= 0)) { // make sure the keys are numeric

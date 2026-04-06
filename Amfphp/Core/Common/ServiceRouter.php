@@ -141,6 +141,7 @@ class Amfphp_Core_Common_ServiceRouter {
         $serviceObject = Amfphp_Core_FilterManager::getInstance()->callFilters(self::FILTER_SERVICE_OBJECT, $unfilteredServiceObject, $serviceName, $methodName, $parameters);
 
         $isStaticMethod = false;
+        $numberOfProvidedParameters = count($parameters);
         
         if(method_exists($serviceObject, $methodName)){
             //method exists, but isn't static
@@ -158,15 +159,14 @@ class Amfphp_Core_Common_ServiceRouter {
             $method = new ReflectionMethod($serviceObject, $methodName);
             $numberOfRequiredParameters = $method->getNumberOfRequiredParameters();
             $numberOfParameters = $method->getNumberOfParameters();
-            $numberOfProvidedParameters = count($parameters);
             if ($numberOfProvidedParameters < $numberOfRequiredParameters || $numberOfProvidedParameters > $numberOfParameters) {
                 throw new Amfphp_Core_Exception("Invalid number of parameters for method $methodName in service $serviceName : $numberOfRequiredParameters  required, $numberOfParameters total, $numberOfProvidedParameters provided");
             }      
         }
         if($isStaticMethod){
-            return call_user_func_array(array($serviceName, $methodName), $parameters);
+            return $serviceName::$methodName(...$parameters);
         }else{
-            return call_user_func_array(array($serviceObject, $methodName), $parameters);
+            return $serviceObject->$methodName(...$parameters);
         }
     }
 

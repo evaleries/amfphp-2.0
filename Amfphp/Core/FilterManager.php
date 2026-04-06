@@ -71,26 +71,22 @@ class Amfphp_Core_FilterManager{
      * following params: parameters for the function call. As many as necessary can be passed, but only the first will be filtered
      * @return mixed the first call parameter, as filtered by the callees.
      */
-    public function callFilters(){
-        
+    public function callFilters($filterName, $filtered = null){
+        if (!isset($this->allFilters[$filterName])){
+            return $filtered;
+        }
+
         //get arguments with which to call the function. All except first, which is the filter name
         $filterArgs = func_get_args();
-        $filterName = array_shift($filterArgs);
-        $filtered = $filterArgs[0];
-        if (isset($this->allFilters[$filterName])){
-            //the filters matching name
-            $nameFilters = &$this->allFilters[$filterName];
-            //sort by priority
-            ksort($nameFilters);
-            // loop on filters matching filter name by priority
-            foreach($nameFilters as $priorityFilters){
-                //loop for each existing priority
-                foreach($priorityFilters as $callBack){
-                    $fromCallee = call_user_func_array($callBack, $filterArgs);
-                    if($fromCallee !== null){ //!== null because otherwise array() doesn't qualify
-                        $filtered = $filterArgs[0] = $fromCallee;
-                    }
-                    
+        array_shift($filterArgs);
+
+        // loop on filters matching filter name by priority
+        foreach($this->allFilters[$filterName] as $priorityFilters){
+            //loop for each existing priority
+            foreach($priorityFilters as $callBack){
+                $fromCallee = call_user_func_array($callBack, $filterArgs);
+                if($fromCallee !== null){ //!== null because otherwise array() doesn't qualify
+                    $filtered = $filterArgs[0] = $fromCallee;
                 }
             }
         }
@@ -120,6 +116,7 @@ class Amfphp_Core_FilterManager{
         $nameFilters = &$this->allFilters[$filterName];
         if (!isset($nameFilters[$priority])){
             $nameFilters[$priority] = Array();
+            ksort($nameFilters);
         }
         $priorityFilters = &$nameFilters[$priority];
         // add the filter callback

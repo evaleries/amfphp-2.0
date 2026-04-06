@@ -62,6 +62,7 @@ class Amfphp_Core_PluginManager {
      * @param array $disabledPlugins  optional.  an array of names of plugins to disable
      */
     public function loadPlugins($pluginFolders, array $pluginsConfig = null, array $sharedConfig = null, array $disabledPlugins = null) {
+        $disabledPluginsLookup = $disabledPlugins ? array_flip($disabledPlugins) : array();
         foreach ($pluginFolders as $pluginsFolderRootPath) {
             if (!is_dir($pluginsFolderRootPath)) {
                 throw new Amfphp_Core_Exception('invalid path for loading plugins at ' . $pluginsFolderRootPath);
@@ -76,17 +77,8 @@ class Amfphp_Core_PluginManager {
                 if ($pluginName[0] == '.') {
                     continue;
                 }
-
                 //check first if plugin is disabled
-                $shouldLoadPlugin = true;
-                if ($disabledPlugins) {
-                    foreach ($disabledPlugins as $disabledPlugin) {
-                        if ($disabledPlugin == $pluginName) {
-                            $shouldLoadPlugin = false;
-                        }
-                    }
-                }
-                if (!$shouldLoadPlugin) {
+                if (isset($disabledPluginsLookup[$pluginName])) {
                     continue;
                 }
 
