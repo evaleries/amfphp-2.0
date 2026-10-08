@@ -36,12 +36,16 @@ class AmfphpErrorHandlerTest extends PHPUnit_Framework_TestCase {
     protected function setUp() {
         error_reporting(E_ALL ^ E_USER_NOTICE );
         $this->object = new AmfphpErrorHandler();
-        
+        //the handler is scoped to request handling: it is installed on FILTER_SERIALIZED_REQUEST
+        $this->object->filterSerializedRequest('');
+
     }
-    
+
     protected function tearDown(){
+        //and removed on FILTER_SERIALIZED_RESPONSE
+        $this->object->filterSerializedResponse('');
         error_reporting(E_ALL);
-        
+
     }
     
 

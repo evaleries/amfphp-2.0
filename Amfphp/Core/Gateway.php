@@ -322,13 +322,28 @@ class Amfphp_Core_Gateway {
     }
 
     /**
-     * helper function for sending gateway data to output stream
+     * get the serialized response. Use this instead of output() when the calling code manages
+     * headers and output itself, e.g. a framework controller returning a response object
+     * (Laravel/Symfony), where calling header()/echo directly is not allowed.
+     * @return string the serialized data
      */
-    public function output(){
+    public function getRawOutputData(){
+        return $this->rawOutputData;
+    }
 
-        $responseHeaders = $this->getResponseHeaders();
-        foreach($responseHeaders as $header){
-            header($header);
+    /**
+     * helper function for sending gateway data to output stream
+     * @param boolean $sendHeaders set to false when the caller sends the headers itself,
+     * for example a framework controller. Headers must not be sent from inside a streamed
+     * response callback, where they would come too late.
+     */
+    public function output($sendHeaders = true){
+
+        if($sendHeaders){
+            $responseHeaders = $this->getResponseHeaders();
+            foreach($responseHeaders as $header){
+                header($header);
+            }
         }
         echo $this->rawOutputData;
         return $this->rawOutputData;
