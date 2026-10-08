@@ -82,6 +82,14 @@ class Amfphp_Core_PluginManager {
                     continue;
                 }
 
+                // worker-mode fix: plugins live for the whole process lifetime in a
+                // long-running worker (FrankenPHP/Octane). Instantiating a plugin again
+                // would re-register its filters in the FilterManager singleton and be
+                // retained in $this->pluginInstances forever (memory + CPU leak).
+                if (isset($this->pluginInstances[$pluginName])) {
+                    continue;
+                }
+
                 if (!class_exists($pluginName, false)) {
                     require_once $pluginsFolderRootPath . '/' . $pluginName . '/' . $pluginName . '.php';
                 }
@@ -96,7 +104,7 @@ class Amfphp_Core_PluginManager {
 
 
                 $pluginInstance = new $pluginName($pluginConfig);
-                $this->pluginInstances[] = $pluginInstance;
+                $this->pluginInstances[$pluginName] = $pluginInstance;
             }
         }
     }

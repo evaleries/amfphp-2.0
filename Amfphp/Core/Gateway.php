@@ -296,6 +296,11 @@ class Amfphp_Core_Gateway {
         //filter serialized response 
         $this->rawOutputData = $filterManager->callFilters(self::FILTER_SERIALIZED_RESPONSE, $this->rawOutputData);
 
+        // worker-mode fix: release the packet statics so request/response data
+        // (session keys, call arguments) is not retained between requests.
+        Amfphp_Core_Amf_Handler::$requestPacket = null;
+        Amfphp_Core_Amf_Handler::$responsePacket = null;
+
         return $this->rawOutputData;
 
     }
