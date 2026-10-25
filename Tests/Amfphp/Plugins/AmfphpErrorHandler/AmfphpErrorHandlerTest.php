@@ -65,6 +65,43 @@ class AmfphpErrorHandlerTest extends PHPUnit_Framework_TestCase {
         $this->assertTrue(true);
     }
 
+    /**
+     * a response filter without a matching request filter (e.g. plugin
+     * loading failed before the request was filtered) must not restore:
+     * that would pop the host framework's error handler in a worker
+     * */
+    public function testResponseWithoutRequestKeepsForeignHandler(){
+        $sentinel = function($errno, $errstr) {
+        };
+        set_error_handler($sentinel);
+        $fresh = new AmfphpErrorHandler();
+        $fresh->filterSerializedResponse('');
+        $topHandler = set_error_handler(function($errno, $errstr) {
+        });
+        restore_error_handler();
+        restore_error_handler();
+        $this->assertTrue($topHandler === $sentinel);
+    }
+
+    /**
+     * installing twice (nested gateway calls) must only push the handler
+     * once, so a single response filter restores the foreign handler below
+     * */
+    public function testDoubleInstallNeedsSingleRestore(){
+        $sentinel = function($errno, $errstr) {
+        };
+        set_error_handler($sentinel);
+        $fresh = new AmfphpErrorHandler();
+        $fresh->filterSerializedRequest('');
+        $fresh->filterSerializedRequest('');
+        $fresh->filterSerializedResponse('');
+        $topHandler = set_error_handler(function($errno, $errstr) {
+        });
+        restore_error_handler();
+        restore_error_handler();
+        $this->assertTrue($topHandler === $sentinel);
+    }
+
 }
 
 ?>

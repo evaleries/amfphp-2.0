@@ -22,6 +22,17 @@
  */
 
 class AmfphpErrorHandler {
+
+    /**
+     * true while this instance has installed the custom error handler and
+     * not yet restored the previous one. Install/restore must stay paired:
+     * calling restore_error_handler() without a matching set_error_handler()
+     * would pop the host framework's handler in a long-running worker, and
+     * a leaked set_error_handler() would hijack the whole process.
+     * @var boolean
+     */
+    private $errorHandlerInstalled = false;
+
      /**
       * constructor. Add filters on the FilterManager.
       * @param array $config optional key/value pairs in an associative array. Used to override default configuration values.
@@ -39,18 +50,27 @@ class AmfphpErrorHandler {
      * @return string
      */
     public function filterSerializedRequest($rawData) {
-        set_error_handler('custom_warning_handler');
+        if (!$this->errorHandlerInstalled) {
+            set_error_handler('custom_warning_handler');
+            $this->errorHandlerInstalled = true;
+        }
         return $rawData;
     }
 
     /**
-     * restores the previous error handler.
+     * restores the previous error handler, but only if this instance
+     * installed it. The gateway also calls this filter on failure paths
+     * where the request filter may never have run (e.g. plugin loading
+     * failed first); restoring unconditionally would pop a foreign handler.
      * Runs last (priority 100) so that all other response filters are still covered.
      * @param string $rawData the raw http data
      * @return string
      */
     public function filterSerializedResponse($rawData) {
-        restore_error_handler();
+        if ($this->errorHandlerInstalled) {
+            restore_error_handler();
+            $this->errorHandlerInstalled = false;
+        }
         return $rawData;
     }
 }
