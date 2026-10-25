@@ -96,16 +96,22 @@ class Amfphp_Core_Amf_Handler implements Amfphp_Core_Common_IDeserializer, Amfph
      * @return string
      */
     public function deserialize(array $getData, array $postData, $rawPostData) {
-        $deserializer = new Amfphp_Core_Amf_Deserializer();
-        //note: this has to be done here and not in the constructor to avoid 
+        //note: this has to be done here and not in the constructor to avoid
         //disabling scanning when it's another handler that ends up handling the request
         $this->voConverter = Amfphp_Core_FilterManager::getInstance()->callFilters(Amfphp_Core_Gateway::FILTER_VO_CONVERTER, null);
         if($this->voConverter){
+            $deserializer = new Amfphp_Core_Amf_Deserializer();
             $this->voConverter->setScanEnabled(false);
             $deserializer->voConverter = $this->voConverter;
+            return $deserializer->deserialize($getData, $postData, $rawPostData);
         }
-        $requestPacket = $deserializer->deserialize($getData, $postData, $rawPostData);
-        return $requestPacket;
+        //no VoConverter: the native codec (same value semantics) can be used
+        if (Amfphp_Core_Amf_NativeDeserializer::isAvailable()) {
+            $nativeDeserializer = new Amfphp_Core_Amf_NativeDeserializer();
+            return $nativeDeserializer->deserialize($getData, $postData, $rawPostData);
+        }
+        $deserializer = new Amfphp_Core_Amf_Deserializer();
+        return $deserializer->deserialize($getData, $postData, $rawPostData);
     }
 
     /**
@@ -238,7 +244,11 @@ class Amfphp_Core_Amf_Handler implements Amfphp_Core_Common_IDeserializer, Amfph
      * @return mixed
      */
     public function serialize($data) {
-
+        //pair with deserialize(): native only when no VoConverter is in play
+        if (!$this->voConverter && Amfphp_Core_Amf_NativeSerializer::isAvailable()) {
+            $nativeSerializer = new Amfphp_Core_Amf_NativeSerializer();
+            return $nativeSerializer->serialize($data);
+        }
         $serializer = new Amfphp_Core_Amf_Serializer();
         $serializer->voConverter = $this->voConverter;
         return $serializer->serialize($data);

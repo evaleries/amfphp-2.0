@@ -39,6 +39,7 @@ require_once AMFPHP_ROOTPATH . 'Core/Amf/Header.php';
 require_once AMFPHP_ROOTPATH . 'Core/Amf/Message.php';
 require_once AMFPHP_ROOTPATH . 'Core/Amf/Packet.php';
 require_once AMFPHP_ROOTPATH . 'Core/Amf/Serializer.php';
+require_once AMFPHP_ROOTPATH . 'Core/Amf/NativeCodec.php';
 require_once AMFPHP_ROOTPATH . 'Core/Amf/Util.php';
 
 //core/Amf/types
