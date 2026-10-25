@@ -122,5 +122,29 @@ class Amfphp_Core_FilterManager{
         // add the filter callback
         $priorityFilters[] = array($object, $methodName);
     }
+
+    /**
+     * unregister every filter callback registered for the given object.
+     * Used when a plugin instance is replaced or unloaded in a long-running
+     * process, so its callbacks do not accumulate in the singleton.
+     * @param Object $object the object whose callbacks must be removed
+     */
+    public function removeObjectFilters($object){
+        foreach (array_keys($this->allFilters) as $filterName){
+            foreach (array_keys($this->allFilters[$filterName]) as $priority){
+                foreach ($this->allFilters[$filterName][$priority] as $index => $callBack){
+                    if (isset($callBack[0]) && $callBack[0] === $object){
+                        unset($this->allFilters[$filterName][$priority][$index]);
+                    }
+                }
+                if (count($this->allFilters[$filterName][$priority]) === 0){
+                    unset($this->allFilters[$filterName][$priority]);
+                }
+            }
+            if (count($this->allFilters[$filterName]) === 0){
+                unset($this->allFilters[$filterName]);
+            }
+        }
+    }
 }
 ?>

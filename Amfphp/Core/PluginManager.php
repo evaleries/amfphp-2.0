@@ -30,16 +30,34 @@ class Amfphp_Core_PluginManager {
     protected static $instance = NULL;
 
     /**
-     * plugin instances
+     * plugin instances, keyed by plugin name
      * @var array
      */
     protected $pluginInstances;
+
+    /**
+     * fingerprint of the effective config each plugin instance was created
+     * with, keyed by plugin name. Used to detect config changes in
+     * long-running processes (workers), where instances outlive a request.
+     * @var array
+     */
+    protected $pluginConfigFingerprints;
+
+    /**
+     * plugin names found per plugins folder, keyed by folder path. The set of
+     * installed plugins does not change while a process runs, so the folder
+     * scan is done once per folder instead of on every loadPlugins() call.
+     * @var array
+     */
+    protected $pluginFolderListings;
 
     /**
      * constructor
      */
     protected function __construct() {
         $this->pluginInstances = array();
+        $this->pluginConfigFingerprints = array();
+        $this->pluginFolderListings = array();
     }
 
     /**
@@ -67,31 +85,29 @@ class Amfphp_Core_PluginManager {
             if (!is_dir($pluginsFolderRootPath)) {
                 throw new Amfphp_Core_Exception('invalid path for loading plugins at ' . $pluginsFolderRootPath);
             }
-            $folderContent = scandir($pluginsFolderRootPath);
+            if (!isset($this->pluginFolderListings[$pluginsFolderRootPath])) {
+                $pluginNames = array();
+                foreach (scandir($pluginsFolderRootPath) as $entry) {
+                    //avoid system folders
+                    if ($entry[0] == '.') {
+                        continue;
+                    }
+                    if (is_dir($pluginsFolderRootPath . '/' . $entry)) {
+                        $pluginNames[] = $entry;
+                    }
+                }
+                $this->pluginFolderListings[$pluginsFolderRootPath] = $pluginNames;
+            }
 
-            foreach ($folderContent as $pluginName) {
-                if (!is_dir($pluginsFolderRootPath . '/' . $pluginName)) {
-                    continue;
-                }
-                //avoid system folders
-                if ($pluginName[0] == '.') {
-                    continue;
-                }
-                //check first if plugin is disabled
+            foreach ($this->pluginFolderListings[$pluginsFolderRootPath] as $pluginName) {
+                //check first if plugin is disabled. In a long-running worker the
+                //plugin may already be loaded from an earlier request; unload it
+                //so disabling takes effect instead of being silently ignored.
                 if (isset($disabledPluginsLookup[$pluginName])) {
+                    if (isset($this->pluginInstances[$pluginName])) {
+                        $this->unloadPlugin($pluginName);
+                    }
                     continue;
-                }
-
-                // worker-mode fix: plugins live for the whole process lifetime in a
-                // long-running worker (FrankenPHP/Octane). Instantiating a plugin again
-                // would re-register its filters in the FilterManager singleton and be
-                // retained in $this->pluginInstances forever (memory + CPU leak).
-                if (isset($this->pluginInstances[$pluginName])) {
-                    continue;
-                }
-
-                if (!class_exists($pluginName, false)) {
-                    require_once $pluginsFolderRootPath . '/' . $pluginName . '/' . $pluginName . '.php';
                 }
 
                 $pluginConfig = array();
@@ -101,12 +117,60 @@ class Amfphp_Core_PluginManager {
                 if ($sharedConfig) {
                     $pluginConfig += $sharedConfig;
                 }
+                $configFingerprint = $this->fingerprintConfig($pluginConfig);
 
+                // worker-mode: plugins live for the whole process lifetime in a
+                // long-running worker (FrankenPHP/Octane). Re-instantiating with
+                // the same config would re-register the plugin's filters in the
+                // FilterManager singleton on every request (memory + CPU leak),
+                // so only (re)create the instance when the config changed.
+                if (isset($this->pluginInstances[$pluginName])
+                        && $configFingerprint !== null
+                        && isset($this->pluginConfigFingerprints[$pluginName])
+                        && $this->pluginConfigFingerprints[$pluginName] === $configFingerprint) {
+                    continue;
+                }
+                if (isset($this->pluginInstances[$pluginName])) {
+                    $this->unloadPlugin($pluginName);
+                }
+
+                if (!class_exists($pluginName, false)) {
+                    require_once $pluginsFolderRootPath . '/' . $pluginName . '/' . $pluginName . '.php';
+                }
 
                 $pluginInstance = new $pluginName($pluginConfig);
                 $this->pluginInstances[$pluginName] = $pluginInstance;
+                if ($configFingerprint !== null) {
+                    $this->pluginConfigFingerprints[$pluginName] = $configFingerprint;
+                }
             }
         }
+    }
+
+    /**
+     * fingerprint an effective plugin config. Returns null when the config
+     * cannot be serialized (e.g. it contains a closure); such plugins are
+     * re-created on every loadPlugins() call, as before worker-mode caching.
+     * @param array $pluginConfig
+     * @return string|null
+     */
+    protected function fingerprintConfig(array $pluginConfig) {
+        try {
+            return serialize($pluginConfig);
+        } catch (Throwable $throwable) {
+            return null;
+        }
+    }
+
+    /**
+     * unload a plugin: unregister its filters and drop the instance, so a
+     * later loadPlugins() call can create it again (or not, if disabled).
+     * @param string $pluginName
+     */
+    protected function unloadPlugin($pluginName) {
+        Amfphp_Core_FilterManager::getInstance()->removeObjectFilters($this->pluginInstances[$pluginName]);
+        unset($this->pluginInstances[$pluginName]);
+        unset($this->pluginConfigFingerprints[$pluginName]);
     }
 
 }
