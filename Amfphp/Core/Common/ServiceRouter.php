@@ -45,6 +45,26 @@ class Amfphp_Core_Common_ServiceRouter {
     public $checkArgumentCount;
 
     /**
+     * upper bound for $resolvedServices. Only lookups that found a service file
+     * are cached, so the size is bounded by the number of service files (times
+     * the '.', '/' and '__' spellings of their names); the cap guards against
+     * pathological folder setups.
+     */
+    const MAX_RESOLVED_SERVICES = 1024;
+
+    /**
+     * process-lifetime cache of service folder lookups, keyed by service name.
+     * value: array(service folders the lookup was made with, service file path, class name).
+     * In a long-running worker this skips the per-request file_exists() for every
+     * service folder. A hit is only used for an identical (===) folder list, and
+     * service objects are still created per call. Code changes need a worker
+     * restart anyway (classes cannot be redefined); call clearResolvedServices()
+     * if service files are moved while the process runs.
+     * @var array
+     */
+    protected static $resolvedServices = array();
+
+    /**
      * constructor
      * @param array $serviceFolders folders containing service classes
      * @param array $serviceNames2ClassFindInfo a dictionary of service classes represented in a ClassFindInfo.
@@ -57,6 +77,13 @@ class Amfphp_Core_Common_ServiceRouter {
     }
 
     /**
+     * forget all cached service folder lookups
+     */
+    public static function clearResolvedServices() {
+        self::$resolvedServices = array();
+    }
+
+    /**
      * get a service object by its name. Looks for a match in serviceNames2ClassFindInfo, then in the defined service folders.
      * If none found, an exception is thrown
      * this method is static so that it can be used also by the discovery service
@@ -64,6 +91,7 @@ class Amfphp_Core_Common_ServiceRouter {
      * the service object can either be in the global namespace or in the namespace suggested by the name.
      * For example a call to Sub1/Sub2/NamespaceTestService will load the PHP file in Sub1/Sub2/NamespaceTestService,
      * and return an instance of either NamespaceTestService or Sub1\Sub2\NamespaceTestService
+     * Folder lookups are cached for the process lifetime, see $resolvedServices.
      * 
      * @param type $serviceName
      * @param array $serviceFolders
@@ -76,13 +104,22 @@ class Amfphp_Core_Common_ServiceRouter {
             $classFindInfo = $serviceNames2ClassFindInfo[$serviceName];
             require_once $classFindInfo->absolutePath;
             $serviceObject = new $classFindInfo->className();
+        } else if (isset(self::$resolvedServices[$serviceName]) && self::$resolvedServices[$serviceName][0] === $serviceFolders) {
+            $resolved = self::$resolvedServices[$serviceName];
+            if (!class_exists($resolved[2], false)) {
+                require_once $resolved[1];
+            }
+            $serviceObject = new $resolved[2]();
         } else {
             $temp = str_replace('.', '/', $serviceName);
             $serviceNameWithSlashes = str_replace('__', '/', $temp);
             $serviceIncludePath = $serviceNameWithSlashes . '.php';
             $exploded = explode('/', $serviceNameWithSlashes);
             $className = $exploded[count($exploded) - 1];
-            //no class find info. try to look in the folders
+            $resolvedPath = null;
+            $resolvedClassName = null;
+            //no class find info. try to look in the folders. Every match is
+            //instantiated and the last one wins, so that is what gets cached
             foreach ($serviceFolders as $folder) {
                 $folderPath = NULL;
                 $rootNamespace = NULL;
@@ -93,19 +130,23 @@ class Amfphp_Core_Common_ServiceRouter {
                     $folderPath = $folder;
                 }
                 $servicePath = $folderPath . $serviceIncludePath;
-                
+
                 if (file_exists($servicePath)) {
                     require_once $servicePath;
                     if($rootNamespace == NULL){
-                        $serviceObject = new $className();
+                        $resolvedClassName = $className;
                     }else{
-                        $namespacedClassName = $rootNamespace . '\\' . str_replace('/', '\\', $serviceNameWithSlashes);
-                       
-                        $serviceObject = new $namespacedClassName;
-                        
+                        $resolvedClassName = $rootNamespace . '\\' . str_replace('/', '\\', $serviceNameWithSlashes);
                     }
-                    
+                    $resolvedPath = $servicePath;
+                    $serviceObject = new $resolvedClassName();
                 }
+            }
+            if ($resolvedClassName !== null) {
+                if (count(self::$resolvedServices) >= self::MAX_RESOLVED_SERVICES) {
+                    self::$resolvedServices = array();
+                }
+                self::$resolvedServices[$serviceName] = array($serviceFolders, $resolvedPath, $resolvedClassName);
             }
         }
 

@@ -97,6 +97,25 @@ class Amfphp_Core_Common_ServiceRouterTest extends PHPUnit_Framework_TestCase {
         $ret = $this->object->executeServiceCall('DummyService', '_reserved', array());
     }
 
+    /**
+     * folder lookups are cached per process: a cached result is reused only for
+     * the same service folders, and every call still gets its own service object
+     */
+    public function testServiceLookupCacheFollowsServiceFolders() {
+        $namespaceFolders = array(array(dirname(__FILE__) . '/../../../TestData/NamespaceServices/', 'NService'));
+        $first = Amfphp_Core_Common_ServiceRouter::getServiceObjectStatically('Sub1/NamespaceTestService', $namespaceFolders, array());
+        $second = Amfphp_Core_Common_ServiceRouter::getServiceObjectStatically('Sub1/NamespaceTestService', $namespaceFolders, array());
+        $this->assertEquals('NService\Sub1\NamespaceTestService', get_class($first));
+        $this->assertEquals(get_class($first), get_class($second));
+        $this->assertFalse($first === $second);
+        try {
+            Amfphp_Core_Common_ServiceRouter::getServiceObjectStatically('Sub1/NamespaceTestService', array(dirname(__FILE__) . '/../../../TestData/Services/'), array());
+            $this->fail('a lookup with other service folders must not reuse the cached service');
+        } catch (Amfphp_Core_Exception $exception) {
+            $this->assertTrue(strpos($exception->getMessage(), 'service not found') !== false);
+        }
+    }
+
 }
 
 ?>
