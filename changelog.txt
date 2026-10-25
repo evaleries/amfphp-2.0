@@ -1,4 +1,20 @@
 Version history
+--------- 2.2.3 ---------
+PHP 8.3/8.4 compatibility (explicit nullable types, dynamic property fixes)
+gateway throughput: filter sorting at registration, cheaper service calls
+worker mode (FrankenPHP/Octane): plugins are created once per process and
+re-created only when their config changes or they are disabled; packet
+statics are released after each request
+framework integration: Gateway::getRawOutputData() and output($sendHeaders)
+AmfphpErrorHandler only converts errors while a request is handled
+optional native amfext codec (Amfphp_Core_Amf_NativeDeserializer/Serializer)
+AMF3 serializer: repeated strings found by hash lookup instead of a linear scan
+(-16% per typical request, -60% for a 1000-row response)
+worker mode: service folder lookups cached per process
+(Amfphp_Core_Common_ServiceRouter::clearResolvedServices() resets them) and an
+identical repeated loadPlugins() call is skipped
+benchmarks: tools/benchmark_gateway.php --warm (worker scenario),
+tools/benchmark_serialize_large_dataset.php --amf3 (fixed data seed)
 --------- 2.2.2 ---------
 support for php 5.6 and preliminary support for php 7
 better detection of service classes in Amfphp discorvery(for service browser)
