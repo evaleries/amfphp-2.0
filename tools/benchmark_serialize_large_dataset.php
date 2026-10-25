@@ -13,6 +13,9 @@ function parseOptions(array $argv) {
         'warmup' => 40,
         'items' => 1000,
         'label' => 'serialize_large_dataset',
+        // --amf3: encode the packet as AMF3 (what Flash clients use), which
+        // exercises AMF3 string/object references; the default is AMF0
+        'amf3' => false,
     );
 
     foreach ($argv as $argument) {
@@ -24,6 +27,8 @@ function parseOptions(array $argv) {
             $options['items'] = max(1, (int) substr($argument, 8));
         } elseif (strpos($argument, '--label=') === 0) {
             $options['label'] = substr($argument, 8);
+        } elseif ($argument === '--amf3') {
+            $options['amf3'] = true;
         }
     }
 
@@ -73,8 +78,13 @@ function summarizeDurations(array $durationsNs) {
 
 $options = parseOptions(array_slice($argv, 1));
 $service = new TestService();
+// fixed seed: every run (and every tree in an A/B comparison) encodes the same data
+mt_srand(1);
 $packet = new Amfphp_Core_Amf_Packet();
 $packet->headers = array();
+if ($options['amf3']) {
+    $packet->amfVersion = Amfphp_Core_Amf_Constants::AMF3_ENCODING;
+}
 $packet->messages = array(
     new Amfphp_Core_Amf_Message('/1/onResult', 'null', $service->returnLargeDataSet($options['items']))
 );
@@ -99,6 +109,7 @@ for ($i = 0; $i < $options['iterations']; $i++) {
 $summary = summarizeDurations($durationsNs);
 $summary['label'] = $options['label'];
 $summary['items'] = $options['items'];
+$summary['amf_version'] = $packet->amfVersion;
 $summary['response_bytes'] = $responseBytes;
 $summary['php_version'] = PHP_VERSION;
 $summary['timestamp_utc'] = gmdate('c');

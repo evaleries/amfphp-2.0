@@ -13,6 +13,12 @@ function parseOptions(array $argv) {
         'iterations' => 1500,
         'warmup' => 150,
         'label' => 'gateway_test_service',
+        // --warm: worker-mode scenario. The FilterManager/PluginManager
+        // singletons persist across iterations (one bootstrap, as in a
+        // FrankenPHP/Octane worker) and TestService is resolved through the
+        // service folders, like a consumer without a ClassFindInfo shortcut.
+        // The default resets the singletons per iteration (per-request SAPI cost).
+        'warm' => false,
     );
 
     foreach ($argv as $argument) {
@@ -22,6 +28,8 @@ function parseOptions(array $argv) {
             $options['warmup'] = max(0, (int) substr($argument, 9));
         } elseif (strpos($argument, '--label=') === 0) {
             $options['label'] = substr($argument, 8);
+        } elseif ($argument === '--warm') {
+            $options['warm'] = true;
         }
     }
 
@@ -45,12 +53,16 @@ function resetGatewayState() {
     setStaticProperty('Amfphp_Core_PluginManager', 'instance', null);
 }
 
-function buildBenchmarkConfig() {
+function buildBenchmarkConfig($warm) {
     $config = new TestServicesConfig();
     $config->pluginsFolders = array_values(array_filter($config->pluginsFolders, 'is_dir'));
     $config->disabledPlugins[] = 'AmfphpMonitor';
     $config->disabledPlugins[] = 'AmfphpLogger';
     $config->disabledPlugins = array_values(array_unique($config->disabledPlugins));
+    if ($warm) {
+        unset($config->serviceNames2ClassFindInfo['TestService']);
+        $config->serviceFolders[] = dirname(__DIR__) . '/Tests/TestData/';
+    }
 
     return $config;
 }
@@ -100,9 +112,11 @@ $options = parseOptions(array_slice($argv, 1));
 $testData = new AmfTestData();
 $expectedResponse = bin2hex($testData->testServiceResponsePacket);
 
-$runScenario = function () use ($testData, $expectedResponse) {
-    resetGatewayState();
-    $config = buildBenchmarkConfig();
+$runScenario = function () use ($testData, $expectedResponse, $options) {
+    if (!$options['warm']) {
+        resetGatewayState();
+    }
+    $config = buildBenchmarkConfig($options['warm']);
     $gateway = new Amfphp_Core_Gateway(
         array(),
         array(),
@@ -132,6 +146,7 @@ for ($i = 0; $i < $options['iterations']; $i++) {
 
 $summary = summarizeDurations($durationsNs);
 $summary['label'] = $options['label'];
+$summary['warm'] = $options['warm'];
 $summary['response_bytes'] = $responseBytes;
 $summary['php_version'] = PHP_VERSION;
 $summary['timestamp_utc'] = gmdate('c');
