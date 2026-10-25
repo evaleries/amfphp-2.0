@@ -68,6 +68,35 @@ class Amfphp_Core_PluginManagerTest extends PHPUnit_Framework_TestCase {
 
     }
 
+    /**
+     * an identical repeated call may be skipped, but a later config change must still apply
+     */
+    public function testConfigChangeAfterRepeatedCallApplies(){
+        $folders = array(dirname(__FILE__) . '/../../TestData/TestPlugins/');
+        $this->pluginManager->loadPlugins($folders, array('DummyPlugin' => array('dummyConfVar' => 'repeat')));
+        $this->pluginManager->loadPlugins($folders, array('DummyPlugin' => array('dummyConfVar' => 'repeat')));
+        $this->assertEquals('repeat', DummyPlugin::$dummyConfVar);
+        $this->pluginManager->loadPlugins($folders, array('DummyPlugin' => array('dummyConfVar' => 'changed')));
+        $this->assertEquals('changed', DummyPlugin::$dummyConfVar);
+    }
+
+    /**
+     * a call that failed half way must not be skipped when earlier arguments are repeated
+     */
+    public function testRetryAfterFailedCallIsNotSkipped(){
+        $folders = array(dirname(__FILE__) . '/../../TestData/TestPlugins/');
+        $this->pluginManager->loadPlugins($folders, array('DummyPlugin' => array('dummyConfVar' => 'first')));
+        try {
+            //loads TestPlugins with another config, then fails on the bad folder
+            $this->pluginManager->loadPlugins(array($folders[0], 'bla'), array('DummyPlugin' => array('dummyConfVar' => 'partial')));
+            $this->fail('loading plugins from a bad folder must throw');
+        } catch (Amfphp_Core_Exception $exception) {
+            //expected
+        }
+        $this->pluginManager->loadPlugins($folders, array('DummyPlugin' => array('dummyConfVar' => 'first')));
+        $this->assertEquals('first', DummyPlugin::$dummyConfVar);
+    }
+
 
     /**
      * test bad folder

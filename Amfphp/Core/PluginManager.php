@@ -52,6 +52,18 @@ class Amfphp_Core_PluginManager {
     protected $pluginFolderListings;
 
     /**
+     * arguments of the last loadPlugins() call whose outcome can be reused. The
+     * gateway calls loadPlugins() on every request, in a long-running process
+     * nearly always with identical arguments; an identical call (===) is then a
+     * no-op. null when every plugin must be re-examined: before the first call,
+     * after a call that threw, or while a plugin config has no fingerprint.
+     * Objects inside the arguments compare by identity, so a config object that
+     * is mutated in place is not noticed; pass a new object to reload plugins.
+     * @var array|null
+     */
+    protected $lastLoadArguments;
+
+    /**
      * constructor
      */
     protected function __construct() {
@@ -73,6 +85,7 @@ class Amfphp_Core_PluginManager {
 
     /**
      * load the plugins
+     * An identical repeated call returns immediately, see $lastLoadArguments.
      * @param array $pluginFolders where to load the plugins from. Absolute paths. For example Amfphp/Plugins/
      * @param array $pluginsConfig  optional. an array containing the plugin configuration, using the plugin name as key.
      * @param array $sharedConfig optional. if both a specific config and a shared config are available, concatenate them to create the plugin config. 
@@ -80,6 +93,11 @@ class Amfphp_Core_PluginManager {
      * @param array $disabledPlugins  optional.  an array of names of plugins to disable
      */
     public function loadPlugins($pluginFolders, ?array $pluginsConfig = null, ?array $sharedConfig = null, ?array $disabledPlugins = null) {
+        $loadArguments = array($pluginFolders, $pluginsConfig, $sharedConfig, $disabledPlugins);
+        if ($this->lastLoadArguments !== null && $this->lastLoadArguments === $loadArguments) {
+            return;
+        }
+        $this->lastLoadArguments = null;
         $disabledPluginsLookup = $disabledPlugins ? array_flip($disabledPlugins) : array();
         foreach ($pluginFolders as $pluginsFolderRootPath) {
             if (!is_dir($pluginsFolderRootPath)) {
@@ -144,6 +162,9 @@ class Amfphp_Core_PluginManager {
                     $this->pluginConfigFingerprints[$pluginName] = $configFingerprint;
                 }
             }
+        }
+        if (count($this->pluginInstances) === count($this->pluginConfigFingerprints)) {
+            $this->lastLoadArguments = $loadArguments;
         }
     }
 
