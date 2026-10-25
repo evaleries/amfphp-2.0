@@ -51,7 +51,9 @@ class Amfphp_Core_Amf_Serializer implements Amfphp_Core_Common_ISerializer {
     protected $storedObjects;
 
     /**
-     * amf3 references to strings
+     * amf3 references to strings. key: the string, value: its reference index,
+     * so a repeated string is found with isset() instead of a linear search
+     * over every string written so far
      * @var array
      */
     protected $storedStrings;
@@ -600,10 +602,16 @@ class Amfphp_Core_Amf_Serializer implements Amfphp_Core_Common_ISerializer {
             return;
         }
 
-        if (!$this->handleReference($d, $this->storedStrings)) {
-            $this->writeAmf3Int(strlen($d) << 1 | 1); // U29S-value
-            $this->outBuffer .= $d;
+        if (isset($this->storedStrings[$d])) {
+            $this->writeAmf3Int($this->storedStrings[$d] << 1); // U29S-ref
+            return;
         }
+        $count = count($this->storedStrings);
+        if ($count <= self::MAX_STORED_OBJECTS) {
+            $this->storedStrings[$d] = $count;
+        }
+        $this->writeAmf3Int(strlen($d) << 1 | 1); // U29S-value
+        $this->outBuffer .= $d;
     }
 
     /**

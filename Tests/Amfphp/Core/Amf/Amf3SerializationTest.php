@@ -207,6 +207,34 @@ class Amf3SerializationTest extends PHPUnit_Framework_TestCase {
         
     }
 
+    /**
+     * strings referenced again after the reference table is full, an integer-like
+     * key sharing its string with a value, and an empty string (never referenced)
+     * must decode to the same values: serializer and deserializer must assign the
+     * same reference indexes. Keyed arrays are sent as objects and decode to
+     * stdClass, so compare as JSON, which still tells strings from numbers and
+     * lists from maps.
+     */
+    public function testStringReferencesRoundTripPastTableLimit() {
+        $strings = array();
+        for ($i = 0; $i < Amfphp_Core_Amf_Serializer::MAX_STORED_OBJECTS + 50; $i++) {
+            $strings[] = 'string' . $i;
+        }
+        $data = array(
+            'mixedKeys' => array('5' => 'five', 'k' => '5', 'empty' => ''),
+            'unique' => $strings,
+            'repeatedEarly' => array_slice($strings, 0, 20),
+            'repeatedLate' => array_slice($strings, -20),
+        );
+        $packet = new Amfphp_Core_Amf_Packet();
+        $packet->amfVersion = Amfphp_Core_Amf_Constants::AMF3_ENCODING;
+        $packet->messages[] = new Amfphp_Core_Amf_Message('/1/onResult', 'null', $data);
+        $serializer = new Amfphp_Core_Amf_Serializer();
+        $deserializer = new Amfphp_Core_Amf_Deserializer();
+        $decoded = $deserializer->deserialize(array(), array(), $serializer->serialize($packet));
+        $this->assertEquals(json_encode($data), json_encode($decoded->messages[0]->data));
+    }
+
 }
 
 ?>
