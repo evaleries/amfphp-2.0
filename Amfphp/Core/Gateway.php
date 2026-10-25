@@ -255,23 +255,34 @@ class Amfphp_Core_Gateway {
             $deserializedResponse = $exceptionHandler->handleException($exception);
 
         }
-        //filter deserialized response
-        $deserializedResponse = $filterManager->callFilters(self::FILTER_DESERIALIZED_RESPONSE, $deserializedResponse);
+        $serializedResponseFiltered = false;
+        try {
+            //filter deserialized response
+            $deserializedResponse = $filterManager->callFilters(self::FILTER_DESERIALIZED_RESPONSE, $deserializedResponse);
 
+            //filter serializer
+            $serializer = $filterManager->callFilters(self::FILTER_SERIALIZER, $defaultHandler, $this->contentType);
 
-        //filter serializer
-        $serializer = $filterManager->callFilters(self::FILTER_SERIALIZER, $defaultHandler, $this->contentType);
+            //serialize
+            $this->rawOutputData = $serializer->serialize($deserializedResponse);
 
-        //serialize
-        $this->rawOutputData = $serializer->serialize($deserializedResponse);
+            //filter serialized response
+            $this->rawOutputData = $filterManager->callFilters(self::FILTER_SERIALIZED_RESPONSE, $this->rawOutputData);
+            $serializedResponseFiltered = true;
+        } finally {
+            if (!$serializedResponseFiltered) {
+                // A failure above (including an Error, which the Exception
+                // catch does not handle) must not skip response-filter
+                // cleanup: AmfphpErrorHandler restores the previous error
+                // handler there, and in a worker a leak hijacks the process.
+                $filterManager->callFilters(self::FILTER_SERIALIZED_RESPONSE, is_string($this->rawOutputData) ? $this->rawOutputData : '');
+            }
 
-        //filter serialized response 
-        $this->rawOutputData = $filterManager->callFilters(self::FILTER_SERIALIZED_RESPONSE, $this->rawOutputData);
-
-        // worker-mode fix: release the packet statics so request/response data
-        // (session keys, call arguments) is not retained between requests.
-        Amfphp_Core_Amf_Handler::$requestPacket = null;
-        Amfphp_Core_Amf_Handler::$responsePacket = null;
+            // worker-mode fix: release the packet statics so request/response data
+            // (session keys, call arguments) is not retained between requests.
+            Amfphp_Core_Amf_Handler::$requestPacket = null;
+            Amfphp_Core_Amf_Handler::$responsePacket = null;
+        }
 
         return $this->rawOutputData;
 
