@@ -140,12 +140,6 @@ class Amfphp_Core_Gateway {
     protected $rawOutputData;
 
     /**
-     * normalized content type without parameters, lowercased
-     * @var String
-     */
-    protected $normalizedContentType;
-
-    /**
      *
      */
     /**
@@ -161,7 +155,6 @@ class Amfphp_Core_Gateway {
         $this->postData = $postData;
         $this->rawInputData = $rawInputData;
         $this->contentType = $contentType;
-        $this->normalizedContentType = $this->normalizeContentType($contentType);
         if($config){
             $this->config = $config;
         }else{
@@ -186,49 +179,28 @@ class Amfphp_Core_Gateway {
     }
 
     /**
-     * normalize content type for quick transport-plugin checks
-     * @param string $contentType
-     * @return string|null
-     */
-    protected function normalizeContentType($contentType){
-        if(!$contentType){
-            return null;
-        }
-        $split = explode(';', strtolower(trim($contentType)), 2);
-        return trim($split[0]);
-    }
-
-    /**
-     * disable transport plugins that cannot match the current request content type.
+     * disable transport plugins that cannot handle the current request content type.
      * this avoids paying their constructor/filter registration cost on every request.
+     * The checks mirror each plugin's filterHandler() predicate on the raw content
+     * type (the same value the plugins receive), so a plugin is only skipped when
+     * it would decline the request anyway. Keep in sync with AmfphpJson,
+     * AmfphpGet and AmfphpDummy.
      * @param array $disabledPlugins
      * @return array
      */
     protected function getDisabledPluginsForCurrentRequest(array $disabledPlugins){
-        switch($this->normalizedContentType){
-            case Amfphp_Core_Amf_Constants::CONTENT_TYPE:
-                $disabledPlugins[] = 'AmfphpDummy';
-                $disabledPlugins[] = 'AmfphpJson';
-                $disabledPlugins[] = 'AmfphpGet';
-                break;
-            case 'application/json':
-                $disabledPlugins[] = 'AmfphpDummy';
-                $disabledPlugins[] = 'AmfphpGet';
-                break;
-            case 'text/amfphpget':
-                $disabledPlugins[] = 'AmfphpDummy';
-                $disabledPlugins[] = 'AmfphpJson';
-                break;
-            case 'application/x-www-form-urlencoded':
-            case null:
-                $disabledPlugins[] = 'AmfphpJson';
-                $disabledPlugins[] = 'AmfphpGet';
-                break;
-            default:
-                $disabledPlugins[] = 'AmfphpDummy';
-                $disabledPlugins[] = 'AmfphpJson';
-                $disabledPlugins[] = 'AmfphpGet';
-                break;
+        $contentType = $this->contentType;
+        //AmfphpJson::filterHandler: strpos($contentType, 'application/json') !== false
+        if ($contentType === null || strpos($contentType, 'application/json') === false) {
+            $disabledPlugins[] = 'AmfphpJson';
+        }
+        //AmfphpGet::filterHandler: strpos($contentType, 'text/amfphpget') !== false
+        if ($contentType === null || strpos($contentType, 'text/amfphpget') === false) {
+            $disabledPlugins[] = 'AmfphpGet';
+        }
+        //AmfphpDummy::filterHandler: !$contentType || $contentType == 'application/x-www-form-urlencoded'
+        if ($contentType && $contentType != 'application/x-www-form-urlencoded') {
+            $disabledPlugins[] = 'AmfphpDummy';
         }
         return array_values(array_unique($disabledPlugins));
     }
