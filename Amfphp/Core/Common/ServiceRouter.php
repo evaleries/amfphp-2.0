@@ -132,11 +132,16 @@ class Amfphp_Core_Common_ServiceRouter {
      *
      * @param string $serviceName
      * @param string $methodName
-     * @param array $parameters
+     * @param mixed $parameters the call arguments as sent by the client; anything but a list is refused
      * @return mixed the result of the function call
      *
      */
-    public function executeServiceCall($serviceName, $methodName, array $parameters) {
+    public function executeServiceCall($serviceName, $methodName, $parameters) {
+        // A non-list (AMF null body, keyed array) would throw an Error (TypeError, unknown named
+        // parameter), which escapes the gateway's catch (Exception) instead of becoming a fault.
+        if (!is_array($parameters) || !array_is_list($parameters)) {
+            throw new Amfphp_Core_Exception("parameters for method $methodName in service $serviceName must be a list");
+        }
         $unfilteredServiceObject = $this->getServiceObject($serviceName);
         $serviceObject = Amfphp_Core_FilterManager::getInstance()->callFilters(self::FILTER_SERVICE_OBJECT, $unfilteredServiceObject, $serviceName, $methodName, $parameters);
 
