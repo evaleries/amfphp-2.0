@@ -15,6 +15,8 @@ worker mode: service folder lookups cached per process
 identical repeated loadPlugins() call is skipped
 benchmarks: tools/benchmark_gateway.php --warm (worker scenario),
 tools/benchmark_serialize_large_dataset.php --amf3 (fixed data seed)
+service calls whose parameters are not a list (AMF null body, keyed array) get
+a fault instead of a PHP Error that escaped the gateway as an HTTP 500
 --------- 2.2.2 ---------
 support for php 5.6 and preliminary support for php 7
 better detection of service classes in Amfphp discorvery(for service browser)
